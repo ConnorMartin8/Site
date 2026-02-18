@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML to PDF Converter</title>
+    <link rel="icon" type="image/png" href="../icon.png?v=2">
+    <link rel="apple-touch-icon" href="../icon.png?v=2">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1e1e24;
+            color: #f0f0f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .home-btn {
+            position: absolute; top: 20px; left: 20px;
+            text-decoration: none; color: #888; font-weight: 600;
+            display: flex; align-items: center; gap: 5px; padding: 8px 12px;
+            border-radius: 6px; transition: color 0.2s;
+        }
+        .home-btn:hover { color: #fff; background: #333; }
+
+        .container {
+            background: #2b2b35;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        h1 { margin-top: 0; margin-bottom: 1rem; color: #fff; }
+        p { color: #aaa; margin-bottom: 2rem; font-size: 0.9rem; }
+
+        .drop-zone {
+            border: 2px dashed #444;
+            border-radius: 6px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-bottom: 1.5rem;
+            background-color: #23232a;
+        }
+        .drop-zone:hover, .drop-zone.dragover { 
+            background-color: #2a2a35; 
+            border-color: #00d2ff; 
+        }
+        .drop-zone p { margin: 0; font-size: 0.9rem; color: #888; pointer-events: none; }
+        .drop-zone .file-name { display: block; margin-top: 10px; font-weight: bold; color: #00d2ff; word-break: break-all; }
+
+        #hiddenFileInput { display: none; }
+
+        button {
+            background-color: #00d2ff; color: #1e1e24; border: none; padding: 15px 20px;
+            border-radius: 8px; cursor: pointer; font-size: 1.1rem; font-weight: bold;
+            width: 100%; transition: opacity 0.2s;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #444; color: #777; cursor: not-allowed; }
+
+        /* A hidden area to render the HTML before converting */
+        #content-to-print {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 800px; /* Standard A4 width roughly */
+            background: white;
+            color: black;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <a href="../" class="home-btn">🏠 Home</a>
+
+    <div class="container">
+        <h1>HTML to PDF</h1>
+        <p>Upload an HTML file to convert it instantly.</p>
+
+        <div class="drop-zone" id="dropZone">
+            <p>Click or Drop HTML file here</p>
+            <span class="file-name" id="fileNameDisplay"></span>
+        </div>
+
+        <input type="file" id="hiddenFileInput" accept=".html,.htm">
+        <button onclick="convertFile()" id="convertBtn" disabled>Download PDF</button>
+    </div>
+
+    <div id="content-to-print"></div>
+
+    <script>
+        let currentFile = null;
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('hiddenFileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const convertBtn = document.getElementById('convertBtn');
+        const processingDiv = document.getElementById('content-to-print');
+
+        // UI Interactions
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault(); dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            if (file.type !== 'text/html' && !file.name.includes('.html')) {
+                alert("Please select a valid HTML file.");
+                return;
+            }
+            currentFile = file;
+            fileNameDisplay.textContent = "Selected: " + file.name;
+            dropZone.style.borderColor = "#28a745";
+            convertBtn.disabled = false;
+        }
+
+        function convertFile() {
+            if (!currentFile) return;
+
+            // Change button text
+            const originalText = convertBtn.textContent;
+            convertBtn.textContent = "Processing...";
+            convertBtn.disabled = true;
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // 1. Get the HTML content
+                const htmlContent = e.target.result;
+                
+                // 2. Put it into the hidden container
+                processingDiv.innerHTML = htmlContent;
+
+                // 3. Configure PDF options
+                const opt = {
+                    margin:       10,
+                    filename:     currentFile.name.replace('.html', '.pdf'),
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2 }, // Higher scale = better quality
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                };
+
+                // 4. Generate and Save
+                html2pdf().set(opt).from(processingDiv).save().then(() => {
+                    // Reset button
+                    convertBtn.textContent = originalText;
+                    convertBtn.disabled = false;
+                    
+                    // Clear the hidden div after a delay
+                    setTimeout(() => processingDiv.innerHTML = '', 1000);
+                });
+            };
+
+            reader.readAsText(currentFile);
+        }
+    </script>
+</body>
+</html>
